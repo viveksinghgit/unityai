@@ -10,36 +10,36 @@ Every NPC remembers every player across sessions. A blacksmith recalls that you 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           Unity Client                               │
-│                                                                      │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-│  │ NpcSoulComponent │  │EmotionAnimCtrl   │  │NpcSoulNetworkSync│  │
-│  │ LoadMemory       │  │ Blend shapes     │  │(NGO, optional)   │  │
-│  │ StartDialogue    │  │ Rig weights      │  │ Server authority │  │
-│  │ ApplyMemoryState │  │ Mouth / TTS sync │  │ NetworkVariable  │  │
-│  └────────┬─────────┘  └──────────────────┘  └──────────────────┘  │
-│           │                                                          │
+│                           Unity Client                              │
+│                                                                     │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐   │
+│  │ NpcSoulComponent │  │EmotionAnimCtrl   │  │NpcSoulNetworkSync│   │
+│  │ LoadMemory       │  │ Blend shapes     │  │(NGO, optional)   │   │
+│  │ StartDialogue    │  │ Rig weights      │  │ Server authority │   │
+│  │ ApplyMemoryState │  │ Mouth / TTS sync │  │ NetworkVariable  │   │
+│  └────────┬─────────┘  └──────────────────┘  └──────────────────┘   │
+│           │                                                         │
 │  ┌────────▼──────────────────────────────────────────────────────┐  │
-│  │                    AzureMemoryService                          │  │
+│  │                    AzureMemoryService                         │  │
 │  │        LRU Cache → Circuit Breaker → HTTP Client              │  │
-│  └────────────────────────────┬───────────────────────────────────┘  │
-│                                │                                      │
-│  ┌──────────────────┐  ┌───────▼──────────────┐                      │
-│  │ SignificanceScorer│  │   NpcTtsService       │                      │
-│  │ (Sentis ONNX)    │  │ Azure Speech SDK      │                      │
-│  │ On-device filter │  │ Word-boundary lip sync│                      │
-│  └──────────────────┘  └──────────────────────┘                      │
+│  └────────────────────────────┬──────────────────────────────────┘  │
+│                               │                                     │
+│  ┌───────────────────┐  ┌───────▼───────────────┐                   │
+│  │ SignificanceScorer│  │   NpcTtsService       │                   │
+│  │ (Sentis ONNX)     │  │ Azure Speech SDK      │                   │
+│  │ On-device filter  │  │ Word-boundary lip sync│                   │
+│  └───────────────────┘  └───────────────────────┘                   │
 └────────────────────────────────┬────────────────────────────────────┘
                                  │ HTTPS  x-functions-key
 ┌────────────────────────────────▼────────────────────────────────────┐
-│                    Azure Functions  (Isolated Worker .NET 8)         │
-│                                                                      │
+│                    Azure Functions  (Isolated Worker .NET 8)        │
+│                                                                     │
 │  POST /api/memory/process-event    GET /api/memory/{npc}/{player}   │
-│  POST /api/dialogue/generate       POST /api/gossip/broadcast        │
-│                                                                      │
+│  POST /api/dialogue/generate       POST /api/gossip/broadcast       │
+│                                                                     │
 │  PromptInjectionGuard · TokenBudgetTracker · SemanticResponseCache  │
 │  ContentSafetyValidator · EmotionalWeightCalculator · GossipService │
-└──────┬──────────────────┬──────────────────────────┬────────────────┘
+└──────┬──────────────────┬───────────────────────────┬───────────────┘
        │                  │                           │
        ▼                  ▼                           ▼
   Cosmos DB          Azure OpenAI               Service Bus

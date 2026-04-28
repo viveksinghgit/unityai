@@ -1,0 +1,37 @@
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      },
+      "enableLiveMetrics": true
+    },
+    "logLevel": {
+      "default": "Information",
+      "NpcSoulEngine": "Debug",
+      "Microsoft": "Warning",
+      "Azure": "Warning"
+    }
+  },
+  "extensions": {
+    "serviceBus": {
+      "prefetchCount": 10,
+      "autoCompleteMessages": true,
+      "maxConcurrentCalls": 8,
+      "maxConcurrentSessions": 4,
+      "transportType": "AmqpWebSockets"
+    },
+    "cosmosDB": {
+      "connectionStringSetting": "CosmosConnectionString"
+    }
+  },
+  "functionTimeout": "00:10:00",
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": 3,
+    "minimumInterval": "00:00:02",
+    "maximumInterval": "00:00:30"
+  }
+}

@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  BUILD_CONFIG: Release
+
+jobs:
+  # ─── Build + Unit Tests ───────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore functions/NpcSoulEngine.Functions.csproj
+
+      - name: Build
+        run: >
+          dotnet build functions/NpcSoulEngine.Functions.csproj
+          --configuration ${{ env.BUILD_CONFIG }}
+          --no-restore
+          --warnaserror
+
+      - name: Unit tests
+        run: >
+          dotnet test functions.Tests/NpcSoulEngine.Functions.Tests.csproj
+          --configuration ${{ env.BUILD_CONFIG }}
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory ./TestResults
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: NUnit Test Results
+          path: TestResults/*.trx
+          reporter: dotnet-trx
+          fail-on-error: true
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-package
+          path: functions/bin/${{ env.BUILD_CONFIG }}/net8.0/
+          retention-days: 7
+
+  # ─── Deploy to Staging ────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+
+    outputs:
+      functions_url: ${{ steps.deploy.outputs.app-url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish functions
+        run: >
+          dotnet publish functions/NpcSoulEngine.Functions.csproj
+          --configuration ${{ env.BUILD_CONFIG }}
+          --output ./publish
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Functions (staging slot)
+        id: deploy
+        uses: azure/functions-action@v1
+        with:
+          app-name: func-npc-soul-staging
+          slot-name: staging
+          package: ./publish
+
+  # ─── Performance Gate (Load Test) ─────────────────────────────────────────
+  performance-gate:
+    name: Performance Gate
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Azure Load Test
+        uses: azure/load-testing@v1
+        with:
+          loadTestConfigFile: .azure/load-test.yaml
+          loadTestResource: npc-soul-load-test
+          resourceGroup: rg-npc-soul-engine
+          env: |
+            [
+              { "name": "FUNCTIONS_BASE_URL", "value": "${{ needs.deploy-staging.outputs.functions_url }}" },
+              { "name": "FUNCTIONS_HOST_KEY",  "value": "${{ secrets.STAGING_FUNCTIONS_HOST_KEY }}" }
+            ]
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results
+          path: ${{ github.workspace }}/loadTest/
+          retention-days: 30
+
+  # ─── Promote Staging → Production ────────────────────────────────────────
+  promote-production:
+    name: Promote to Production
+    needs: performance-gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production   # requires manual approval in GitHub Environments
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Swap staging slot → production
+        run: >
+          az functionapp deployment slot swap
+          --name func-npc-soul-staging
+          --resource-group rg-npc-soul-engine
+          --slot staging
+          --target-slot production

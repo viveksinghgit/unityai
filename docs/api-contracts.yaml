@@ -1,0 +1,267 @@
+openapi: "3.1.0"
+info:
+  title: NPC Soul Engine – Azure Functions API
+  version: "1.0.0"
+  description: |
+    All endpoints are Azure Functions with Function-level auth (x-functions-key header).
+    Base URL: https://func-npc-soul-{env}.azurewebsites.net
+
+servers:
+  - url: https://func-npc-soul-dev.azurewebsites.net
+    description: Dev
+  - url: https://func-npc-soul-prod.azurewebsites.net
+    description: Prod
+
+security:
+  - functionKey: []
+
+components:
+  securitySchemes:
+    functionKey:
+      type: apiKey
+      in: header
+      name: x-functions-key
+
+  schemas:
+    ActionType:
+      type: string
+      enum:
+        - Kindness
+        - Betrayal
+        - Threat
+        - Bribe
+        - TradeFair
+        - TradeDeceptive
+        - CombatInitiated
+        - CombatDefended
+        - QuestHelped
+        - QuestAbandoned
+        - PromiseKept
+        - PromiseBroken
+        - Trespass
+        - Gift
+        - Insult
+        - Compliment
+        - Rescued
+        - Endangered
+        - WitnessedViolence
+        - NeutralInteraction
+
+    StakeLevel:
+      type: string
+      enum: [Low, Medium, High, LifeOrDeath]
+
+    ActionContext:
+      type: object
+      required: [summary]
+      properties:
+        sceneName:     { type: string }
+        stakes:        { $ref: '#/components/schemas/StakeLevel' }
+        publicness:    { type: number, minimum: 0, maximum: 1 }
+        summary:       { type: string, maxLength: 300 }
+        itemsInvolved: { type: array, items: { type: string } }
+
+    MemoryEventPayload:
+      type: object
+      required: [npcId, playerId, actionType, context]
+      properties:
+        npcId:           { type: string }
+        playerId:        { type: string }
+        actionType:      { $ref: '#/components/schemas/ActionType' }
+        context:         { $ref: '#/components/schemas/ActionContext' }
+        timestamp:       { type: string, format: date-time }
+        witnessIds:      { type: array, items: { type: string } }
+        witnessPlayerIds: { type: array, items: { type: string } }
+        location:        { type: string }
+        zone:            { type: string, default: zone_default }
+        significanceHint: { type: number, minimum: 0, maximum: 1 }
+
+    EmotionVector:
+      type: object
+      properties:
+        primary:   { type: string }
+        intensity: { type: number, minimum: 0, maximum: 1 }
+        valence:   { type: number, minimum: -1, maximum: 1 }
+        arousal:   { type: number, minimum: 0, maximum: 1 }
+        dominance: { type: number, minimum: -1, maximum: 1 }
+
+    BehaviorOverrides:
+      type: object
+      properties:
+        refuseTrade:  { type: boolean }
+        alertGuards:  { type: boolean }
+        giveDiscount: { type: boolean }
+        avoidPlayer:  { type: boolean }
+        seekHelp:     { type: boolean }
+
+    SalientEvent:
+      type: object
+      properties:
+        eventId:        { type: string }
+        actionType:     { $ref: '#/components/schemas/ActionType' }
+        description:    { type: string }
+        emotionalWeight: { type: number }
+        timestamp:      { type: string, format: date-time }
+        location:       { type: string }
+
+    NpcMemoryState:
+      type: object
+      properties:
+        npcId:             { type: string }
+        playerId:          { type: string }
+        trustScore:        { type: number, minimum: 0, maximum: 100 }
+        fearScore:         { type: number, minimum: 0, maximum: 100 }
+        respectScore:      { type: number, minimum: 0, maximum: 100 }
+        hostilityScore:    { type: number, minimum: 0, maximum: 100 }
+        currentEmotion:    { $ref: '#/components/schemas/EmotionVector' }
+        salientEvents:     { type: array, items: { $ref: '#/components/schemas/SalientEvent' }, maxItems: 8 }
+        memorySummary:     { type: string, maxLength: 800 }
+        behaviorOverrides: { $ref: '#/components/schemas/BehaviorOverrides' }
+        playerArchetype:   { type: string }
+        archetypeConfidence: { type: number }
+        etag:              { type: string }
+
+    ConversationTurn:
+      type: object
+      required: [role, content]
+      properties:
+        role:    { type: string, enum: [player, npc] }
+        content: { type: string }
+
+    NpcProfile:
+      type: object
+      required: [name, baseDescription]
+      properties:
+        name:            { type: string }
+        baseDescription: { type: string }
+        worldName:       { type: string }
+        locationName:    { type: string }
+
+    DialogueRequest:
+      type: object
+      required: [npcId, playerId, utterance]
+      properties:
+        npcId:      { type: string }
+        playerId:   { type: string }
+        utterance:  { type: string, maxLength: 500 }
+        history:    { type: array, items: { $ref: '#/components/schemas/ConversationTurn' }, maxItems: 6 }
+        npcProfile: { $ref: '#/components/schemas/NpcProfile' }
+        streaming:  { type: boolean, default: true }
+
+    DialogueResponse:
+      type: object
+      properties:
+        text:             { type: string }
+        internalEmotion:  { type: string }
+        emotionIntensity: { type: number }
+        animationHint:    { type: string, enum: [idle, warm, cold, aggressive, fearful, dismissive, joyful, grieving] }
+        tradeWillingness: { type: number, minimum: 0, maximum: 1 }
+        subtext:          { type: string }
+        ssmlMarkup:       { type: string }
+
+    GossipBroadcastRequest:
+      type: object
+      required: [sourceNpcId, playerId, originalEventId, originalEvent]
+      properties:
+        sourceNpcId:      { type: string }
+        playerId:         { type: string }
+        originalEventId:  { type: string }
+        zone:             { type: string }
+        socialGraphEdges:
+          type: array
+          items:
+            type: object
+            properties:
+              targetNpcId:          { type: string }
+              relationshipStrength: { type: number }
+              trustInRelationship:  { type: number }
+        originalEvent:    { $ref: '#/components/schemas/MemoryEventPayload' }
+        emotionalColoring: { type: number }
+        gossipTtlHops:    { type: integer, minimum: 0, maximum: 3 }
+        hopsFromOrigin:   { type: integer }
+
+paths:
+  /api/memory/process-event:
+    post:
+      operationId: processMemoryEvent
+      summary: Process a player-NPC interaction event
+      description: |
+        Computes emotional weight, updates the NPC memory graph in Cosmos DB,
+        and optionally broadcasts gossip. Target: < 8s including GPT-4o processing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemoryEventPayload' }
+      responses:
+        "200":
+          description: Updated NPC memory state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NpcMemoryState' }
+        "400":
+          description: Invalid payload
+
+  /api/memory/{npcId}/{playerId}:
+    get:
+      operationId: getMemoryState
+      summary: Fast Cosmos point-read of NPC memory
+      description: |
+        No GPT-4o call. Target: < 15ms. Returns neutral state if no memory exists.
+      parameters:
+        - name: npcId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: NPC memory state (or neutral if not found)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NpcMemoryState' }
+
+  /api/dialogue/generate:
+    post:
+      operationId: generateDialogue
+      summary: Generate contextually grounded NPC dialogue via GPT-4o
+      description: |
+        Injects live memory context into GPT-4o prompt. Supports SSE streaming
+        (streaming: true) — Unity begins TTS before full response arrives.
+        Target first-token latency: < 1500ms.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DialogueRequest' }
+      responses:
+        "200":
+          description: Generated dialogue response (non-streaming)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DialogueResponse' }
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE stream. Each line: data: {"delta":"<token>"}
+                  Final line: data: {"done":true,"full":{DialogueResponse}}
+
+  /api/gossip/broadcast:
+    post:
+      operationId: broadcastGossip
+      summary: Fire-and-forget gossip broadcast
+      description: |
+        Enqueues gossip to Azure Service Bus. Returns 202 immediately.
+        Processing is async; NPCs in the social graph are updated within ~10s.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GossipBroadcastRequest' }
+      responses:
+        "202":
+          description: Accepted — gossip enqueued

@@ -1,0 +1,22 @@
+{
+  "name": "NpcSoulEngine.Runtime",
+  "rootNamespace": "NpcSoulEngine.Runtime",
+  "references": [
+    "GUID:926a7f7fef78d4c43a9672ab9f0d5b4c",
+    "Unity.Sentis",
+    "Unity.Animation.Rigging",
+    "Unity.Netcode.Runtime.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll",
+    "Microsoft.CognitiveServices.Speech.core.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

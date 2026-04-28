@@ -1,0 +1,58 @@
+# Azure ML command job — submit with:
+#   az ml job create --file ml/pipeline.yml --workspace-name <ws> --resource-group <rg>
+#
+# After the job completes, deploy the registered model to the 'archetype-classifier'
+# managed online endpoint defined in infra/modules/mlworkspace.bicep.
+
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+
+display_name: archetype-classifier-training
+description: >
+  Trains a GradientBoosting archetype classifier on labeled player-behavior
+  data. Outputs are logged to MLflow and the model artifact is registered
+  as 'archetype-classifier' for deployment to the managed online endpoint.
+
+compute: azureml:training-cluster
+
+environment:
+  name: archetype-classifier-env
+  version: 1
+  conda_file: environment.yml
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+
+code: .
+
+command: >-
+  python train.py
+  --data ${{inputs.labeled_data}}
+  --model-dir ${{outputs.model_dir}}
+  --n-estimators 200
+  --max-depth 5
+  --learning-rate 0.1
+
+inputs:
+  labeled_data:
+    type: uri_file
+    path: azureml:archetype-labels@latest   # register your CSV as a data asset first
+
+outputs:
+  model_dir:
+    type: uri_folder
+    mode: rw_mount
+
+# Performance gate: job fails if test accuracy drops below threshold.
+# Checked via MLflow metric logging in train.py.
+limits:
+  timeout: 3600   # 1 hour max
+
+# After this job succeeds, deploy the output model:
+#   az ml online-deployment create \
+#     --name blue \
+#     --endpoint archetype-classifier \
+#     --model azureml:archetype-classifier@latest \
+#     --instance-type Standard_DS2_v2 \
+#     --instance-count 1 \
+#     --environment azureml:archetype-classifier-env@latest \
+#     --scoring-script score.py \
+#     --code-path .

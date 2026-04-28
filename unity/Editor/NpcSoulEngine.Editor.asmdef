@@ -1,0 +1,14 @@
+{
+  "name": "NpcSoulEngine.Editor",
+  "rootNamespace": "NpcSoulEngine.Editor",
+  "references": [
+    "NpcSoulEngine.Runtime"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "noEngineReferences": false
+}

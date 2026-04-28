@@ -1,0 +1,23 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "CosmosConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMzceLkZnZx==",
+    "ServiceBusConnectionString": "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=dev-key",
+    "OpenAiEndpoint": "https://your-ai-foundry.openai.azure.com/",
+    "OpenAiKey": "your-key-here",
+    "CognitiveServicesKey": "your-cog-key-here",
+    "CognitiveServicesEndpoint": "https://your-region.api.cognitive.microsoft.com/",
+    "CosmosDatabaseName": "NpcSoulEngine",
+    "GossipTopicName": "npc-gossip",
+    "ConsolidationQueueName": "memory-consolidation",
+    "Gpt4oDeploymentName": "gpt-4o",
+    "Gpt4oMiniDeploymentName": "gpt-4o-mini",
+    "MaxTokensPerDialogueCall": "2000",
+    "GossipMaxHops": "3",
+    "MemoryDecayIntervalHours": "6",
+    "AzureMLEndpointUri": "https://archetype-classifier.eastus.inference.ml.azure.com/score",
+    "AzureMLEndpointKey": "your-ml-key-here"
+  }
+}
